@@ -1,38 +1,36 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
 import streamlit as st
+import util
 
-"""
-# Welcome to Streamlit!
+if __name__ == '__main__':
+    ticker_symbol = st.sidebar.text_input(
+    "Please enter the stock symbol", 'MSFT'
+    )
+    data_period = st.sidebar.text_input('Period', '10d')
+    data_interval = st.sidebar.radio('Interval', ['15m','30m','1h','1d'])
+    ema1 = st.sidebar.text_input('EMA 1', 20)
+    ema2 = st.sidebar.text_input('EMA 2', 50)
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
+    st.header("Backtest trading strategy **EMA crossover** :rocket:")
+    st.write("*Warning: This is just a programming guide from a guy on YouTube, not financial advice!* :sunglasses:")
+    st.write("""
+        - cross up :point_right: BUY
+        - cross down :point_right: SELL
+        ---
+    """)
 
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+    ticker_data = util.get_ticker_data(ticker_symbol, data_period, data_interval)
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+    if len(ticker_data) != 0:
+        ticker_data = util.get_ema(ticker_data, int(ema1))
+        ticker_data = util.get_ema(ticker_data, int(ema2))
 
+        candle_fig = util.get_candle_chart(ticker_data)
+        candle_fig = util.add_ema_trace(candle_fig, ticker_data.index, ticker_data['ema_' + ema1], 'EMA ' + ema1, "#ffeb3b")
+        candle_fig = util.add_ema_trace(candle_fig, ticker_data.index, ticker_data['ema_' + ema2], 'EMA ' + ema2, "#2962ff")
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
+        trades = util.create_ema_trade_list(ticker_data, 'ema_' + ema1, 'ema_' + ema2)
+        ticker_data = util.join_trades_to_ticker_data(trades, ticker_data)
+        candle_fig = util.add_trades_trace(candle_fig, ticker_data)
 
-    Point = namedtuple('Point', 'x y')
-    data = []
-
-    points_per_turn = total_points / num_turns
-
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
-
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+        trades
+        st.write(candle_fig)
